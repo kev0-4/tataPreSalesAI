@@ -18,13 +18,12 @@ def scrape_and_save(base_url, output_filepath):
         data = extract_data(link)
         all_data.append(data)
         i = i+1
-        time.sleep(5)
+        time.sleep(4)
 
 
     # Print the extracted data
     # print(all_data)
     print(len(all_data))
-
     os.makedirs(os.path.dirname(output_filepath), exist_ok=True)
 
     with open(output_filepath, 'w') as f:

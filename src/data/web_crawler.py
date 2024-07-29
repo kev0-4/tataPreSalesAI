@@ -1,7 +1,7 @@
 from urllib.request import Request, urlopen
 from bs4 import BeautifulSoup as soup
 
-def extract_links(base_url, start_page=1, end_page=2):
+def extract_links(base_url, start_page=1, end_page=1):
     href_links = []
 
     for page_number in range(start_page, end_page + 1):
