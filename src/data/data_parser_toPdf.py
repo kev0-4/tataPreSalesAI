@@ -1,66 +1,76 @@
-'''
-THIS SHIT DOES NOT WORK! FFS SOME ISSUE IN SOME COMMAS IN SOME INDEX IN EXTRACTED_DATA 
-CANT SEEM TO FIGURE IT OUT
-'''
-import re
-import json
-import pandas as pd
+import ast
+import os
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_JUSTIFY
 
-def fix_json_format(data):
-    # Fix single quotes to double quotes
-    data = data.replace("'", '"')
-    
-    # Ensure keys and string values are properly quoted
-    data = re.sub(r'(?<!")(\w+)(?=:)', r'"\1"', data)
-    
-    # Fix trailing commas before closing braces and brackets
-    data = re.sub(r',(\s*[\]}])', r'\1', data)
-    
-    # Fix unescaped double quotes inside strings
-    data = re.sub(r'\\\\"', r'\\"', data)
-    
-    return data
+# Get the project root directory (assuming the script is in src/data/)
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 
-def process_entry(entry):
-    try:
-        # Attempt to decode JSON entry
-        entry_data = json.loads(entry)
-        return entry_data
-    except json.JSONDecodeError as e:
-        # Print specific error details
-        print(f"Error decoding JSON entry: {e}")
-        print(f"Problematic entry: {entry}")
-        # Return None to skip this entry
-        return None
+# Input file path (relative to project root)
+input_file_path = os.path.join(project_root, 'data', 'raw', 'extracted_data.txt')
 
-def convert_to_dataframe(input_filepath):
-    with open(input_filepath, 'r') as f:
-        raw_data = f.read()
-    
-    # Attempt to fix the JSON format
-    fixed_data = fix_json_format(raw_data)
-    
-    # Prepare data for DataFrame
-    rows = []
-    entries = fixed_data.strip().strip('[]').split('}, {')
-    
-    # Handle edge cases for first and last entry
-    entries[0] = '{' + entries[0].lstrip('{')
-    entries[-1] = entries[-1].rstrip('}') + '}'
-    
-    for entry in entries:
-        entry_data = process_entry(entry)
-        if entry_data:
-            for item in entry_data:
-                for title, content_list in item.items():
-                    for sub_item in content_list:
-                        for question, answer in sub_item.items():
-                            rows.append({'Title': title, 'Question': question, 'Answer': answer})
-    
-    df = pd.DataFrame(rows)
-    return df
+# Output directory and file name (relative to project root)
+output_dir = os.path.join(project_root, 'data', 'processed')
+output_filename = "extracted_data.pdf"
 
-# Usage
-input_filepath = 'C:/Users/lemon/Desktop/tata/tatapresalesai/data/raw/extracted_data.txt'
-df = convert_to_dataframe(input_filepath)
-print(df.head())
+# Ensure the output directory exists
+os.makedirs(output_dir, exist_ok=True)
+
+# Full path for the output PDF
+output_file_path = os.path.join(output_dir, output_filename)
+
+# Read the input file
+try:
+    with open(input_file_path, 'r', encoding='utf-8') as file:
+        data_str = file.read()
+except UnicodeDecodeError:
+    # If UTF-8 fails, try with 'latin-1' encoding
+    with open(input_file_path, 'r', encoding='latin-1') as file:
+        data_str = file.read()
+
+# Parse the string to Python data structure
+try:
+    car_data = ast.literal_eval(data_str)
+except SyntaxError as e:
+    print(f"Failed to parse the file content: {e}")
+    print("First 500 characters of the file:")
+    print(data_str[:500])
+    exit()
+
+# Create custom styles
+styles = getSampleStyleSheet()
+styles.add(ParagraphStyle(name='Justify', alignment=TA_JUSTIFY))
+
+def create_pdf(data, filename):
+    doc = SimpleDocTemplate(filename, pagesize=letter,
+                            rightMargin=72, leftMargin=72,
+                            topMargin=72, bottomMargin=18)
+    story = []
+
+    for item in data:
+        for model, qa_list in item.items():
+            # Add model name as a heading
+            story.append(Paragraph(model, styles['Heading1']))
+            story.append(Spacer(1, 12))
+
+            for qa_pair in qa_list:
+                for question, answer in qa_pair.items():
+                    # Add question as a subheading
+                    story.append(Paragraph(question, styles['Heading3']))
+                    story.append(Spacer(1, 6))
+                    # Add answer as a paragraph
+                    story.append(Paragraph(answer, styles['Justify']))
+                    story.append(Spacer(1, 12))
+
+            story.append(Spacer(1, 12))
+
+    doc.build(story)
+    print(f"PDF has been created: {filename}")
+
+# Create the PDF
+create_pdf(car_data, output_file_path)
+
+print(f"Total number of car models: {len(car_data)}")
+print(f"Total number of Q&A pairs: {sum(len(qa_list) for item in car_data for qa_list in item.values())}")
