@@ -3,6 +3,8 @@ import click
 import logging
 from pathlib import Path
 from dotenv import find_dotenv, load_dotenv
+from web_scraper_function import extract_data
+from web_crawler import extract_links
 
 
 @click.command()
@@ -28,3 +30,5 @@ if __name__ == '__main__':
     load_dotenv(find_dotenv())
 
     main()
+
+
